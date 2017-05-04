@@ -1,0 +1,931 @@
+1 #include <Python.h>
+2 #include <iostream>
+3 #include "theano_mod_helper.h"
+4 #include "cuda_ndarray.cuh"
+5 #include <math.h>
+6 #include <numpy/arrayobject.h>
+7 #include <numpy/arrayscalars.h>
+8 #include "cudnn.h"
+9 #include "cudnn_helper.h"
+10 //////////////////////
+11 ////  Support Code
+12 //////////////////////
+13 
+14 
+15 static cudnnHandle_t _handle = NULL;
+16 
+17 
+18 static int
+19 c_set_tensorNd(CudaNdarray *var, cudnnTensorDescriptor_t desc) {
+20 
+21   int dim = CudaNdarray_NDIM(var);
+22   int *strides = (int *)malloc(dim * sizeof(int));
+23   int default_str = 1;
+24   int return_value = 0;
+25   
+26   if (strides != NULL) {
+27     for (int i = dim-1; i >= 0; i--)
+28     {
+29       if (CudaNdarray_HOST_STRIDES(var)[i])
+30         strides[i] = CudaNdarray_HOST_STRIDES(var)[i];
+31       else
+32         strides[i] = default_str;
+33       default_str *= CudaNdarray_HOST_DIMS(var)[i];
+34     }
+35     
+36     cudnnStatus_t err = cudnnSetTensorNdDescriptor(desc, CUDNN_DATA_FLOAT, dim,
+37                                                    CudaNdarray_HOST_DIMS(var),
+38                                                    strides);
+39   	 									
+40     
+41     if (err != CUDNN_STATUS_SUCCESS) {
+42       PyErr_Format(PyExc_RuntimeError,
+43 		  "Could not set tensorNd descriptor: %s"
+44 		  "dim=%d",
+45 		  cudnnGetErrorString(err), dim);
+46 		  
+47 	  return_value = -1;
+48     }
+49   } else {
+50     PyErr_Format(PyExc_MemoryError,
+51 		"Could not allocate memory for strides array of size %d.",
+52 		dim);
+53 		
+54     return_value = -1;  
+55   }
+56     
+57   free(strides);
+58   return return_value;
+59 }
+60 
+61 
+62 static int
+63 c_set_filterNd(CudaNdarray *var, cudnnFilterDescriptor_t desc) {
+64   if (!CudaNdarray_is_c_contiguous(var)) {
+65     PyErr_SetString(PyExc_ValueError,
+66 		    "Only contiguous filters (kernels) are supported.");
+67     return -1;
+68   }
+69   int dim = CudaNdarray_NDIM(var);
+70   cudnnStatus_t err = cudnnSetFilterNdDescriptor(desc, CUDNN_DATA_FLOAT, dim,
+71                                                  CudaNdarray_HOST_DIMS(var));
+72   if (err != CUDNN_STATUS_SUCCESS) {
+73     PyErr_Format(PyExc_RuntimeError,
+74 		 "Could not set filter descriptor: %s."
+75 		 " dims= %d",
+76 		 cudnnGetErrorString(err), dim);
+77     return -1;
+78   }
+79   return 0;
+80 }
+81 
+82 
+83 
+84     namespace {
+85     struct __struct_compiled_op_mcc3066e13c4a42f7e6525d2bc9532fa9 {
+86         PyObject* __ERROR;
+87 
+88         PyObject* storage_V3;
+89 PyObject* storage_V5;
+90 PyObject* storage_V7;
+91 PyObject* storage_V1;
+92         
+93 cudnnTensorDescriptor_t inputnode_mcc3066e13c4a42f7e6525d2bc9532fa9_0;
+94 cudnnTensorDescriptor_t outputnode_mcc3066e13c4a42f7e6525d2bc9532fa9_0;
+95 cudnnPoolingDescriptor_t poolnode_mcc3066e13c4a42f7e6525d2bc9532fa9_0;
+96 
+97 
+98         __struct_compiled_op_mcc3066e13c4a42f7e6525d2bc9532fa9() {
+99             // This is only somewhat safe because we:
+100             //  1) Are not a virtual class
+101             //  2) Do not use any virtual classes in the members
+102             //  3) Deal with mostly POD and pointers
+103 
+104             // If this changes, we would have to revise this, but for
+105             // now I am tired of chasing segfaults because
+106             // initialization code had an error and some pointer has
+107             // a junk value.
+108             memset(this, 0, sizeof(*this));
+109         }
+110         ~__struct_compiled_op_mcc3066e13c4a42f7e6525d2bc9532fa9(void) {
+111             cleanup();
+112         }
+113 
+114         int init(PyObject* __ERROR, PyObject* storage_V3, PyObject* storage_V5, PyObject* storage_V7, PyObject* storage_V1) {
+115             Py_XINCREF(storage_V3);
+116 Py_XINCREF(storage_V5);
+117 Py_XINCREF(storage_V7);
+118 Py_XINCREF(storage_V1);
+119             this->storage_V3 = storage_V3;
+120 this->storage_V5 = storage_V5;
+121 this->storage_V7 = storage_V7;
+122 this->storage_V1 = storage_V1;
+123             
+124 
+125 
+126 
+127 
+128 
+129 cudnnStatus_t errnode_mcc3066e13c4a42f7e6525d2bc9532fa9_0;
+130 inputnode_mcc3066e13c4a42f7e6525d2bc9532fa9_0 = NULL;
+131 outputnode_mcc3066e13c4a42f7e6525d2bc9532fa9_0 = NULL;
+132 poolnode_mcc3066e13c4a42f7e6525d2bc9532fa9_0 = NULL;
+133 if ((errnode_mcc3066e13c4a42f7e6525d2bc9532fa9_0 = cudnnCreateTensorDescriptor(&inputnode_mcc3066e13c4a42f7e6525d2bc9532fa9_0)) != CUDNN_STATUS_SUCCESS) {
+134   PyErr_Format(PyExc_MemoryError, "could not allocate tensor descriptor "
+135                "(inp): %s", cudnnGetErrorString(errnode_mcc3066e13c4a42f7e6525d2bc9532fa9_0));
+136   {
+137         if (!PyErr_Occurred()) {
+138             PyErr_SetString(PyExc_RuntimeError,
+139                 "Unexpected error in an Op's C code. "
+140                 "No Python exception was set.");
+141             }
+142         return 9;
+143 }
+144 }
+145 if ((errnode_mcc3066e13c4a42f7e6525d2bc9532fa9_0 = cudnnCreateTensorDescriptor(&outputnode_mcc3066e13c4a42f7e6525d2bc9532fa9_0)) != CUDNN_STATUS_SUCCESS) {
+146   PyErr_Format(PyExc_MemoryError, "could not allocate tensor descriptor "
+147                "(out): %s", cudnnGetErrorString(errnode_mcc3066e13c4a42f7e6525d2bc9532fa9_0));
+148   {
+149         if (!PyErr_Occurred()) {
+150             PyErr_SetString(PyExc_RuntimeError,
+151                 "Unexpected error in an Op's C code. "
+152                 "No Python exception was set.");
+153             }
+154         return 9;
+155 }
+156 }
+157 
+158 if ((errnode_mcc3066e13c4a42f7e6525d2bc9532fa9_0 = cudnnCreatePoolingDescriptor(&poolnode_mcc3066e13c4a42f7e6525d2bc9532fa9_0)) != CUDNN_STATUS_SUCCESS) {
+159   PyErr_Format(PyExc_MemoryError, "could not allocate pooling "
+160                 "descriptor: %s", cudnnGetErrorString(errnode_mcc3066e13c4a42f7e6525d2bc9532fa9_0));
+161   {
+162         if (!PyErr_Occurred()) {
+163             PyErr_SetString(PyExc_RuntimeError,
+164                 "Unexpected error in an Op's C code. "
+165                 "No Python exception was set.");
+166             }
+167         return 9;
+168 }
+169 }
+170 
+171             this->__ERROR = __ERROR;
+172             return 0;
+173         }
+174         void cleanup(void) {
+175             __label_1:
+176 
+177 double __DUMMY_1;
+178 __label_3:
+179 
+180 double __DUMMY_3;
+181 __label_5:
+182 
+183 double __DUMMY_5;
+184 __label_7:
+185 
+186 double __DUMMY_7;
+187 __label_10:
+188 
+189 if (inputnode_mcc3066e13c4a42f7e6525d2bc9532fa9_0 != NULL) { cudnnDestroyTensorDescriptor(inputnode_mcc3066e13c4a42f7e6525d2bc9532fa9_0); }
+190 if (outputnode_mcc3066e13c4a42f7e6525d2bc9532fa9_0 != NULL) { cudnnDestroyTensorDescriptor(outputnode_mcc3066e13c4a42f7e6525d2bc9532fa9_0); }
+191 if (poolnode_mcc3066e13c4a42f7e6525d2bc9532fa9_0 != NULL) { cudnnDestroyPoolingDescriptor(poolnode_mcc3066e13c4a42f7e6525d2bc9532fa9_0); }
+192 
+193 double __DUMMY_10;
+194 
+195             Py_XDECREF(this->storage_V3);
+196 Py_XDECREF(this->storage_V5);
+197 Py_XDECREF(this->storage_V7);
+198 Py_XDECREF(this->storage_V1);
+199         }
+200         int run(void) {
+201             int __failure = 0;
+202             
+203     PyObject* py_V1;
+204      CudaNdarray * V1;
+205     PyObject* py_V3;
+206      CudaNdarray * V3;
+207     PyObject* py_V5;
+208     
+209         PyArrayObject* V5;
+210         
+211             typedef npy_int64 dtype_V5;
+212             
+213     PyObject* py_V7;
+214     
+215         PyArrayObject* V7;
+216         
+217             typedef npy_int64 dtype_V7;
+218             
+219 {
+220 
+221     py_V1 = PyList_GET_ITEM(storage_V1, 0);
+222     {Py_XINCREF(py_V1);}
+223     
+224         if (py_V1 == Py_None)
+225         {
+226             V1 = NULL;
+227         }
+228         else
+229         {
+230             
+231         assert(py_V1->ob_refcnt >= 2); // There should be at least one ref from the container object,
+232         // and one ref from the local scope.
+233 
+234         if (CudaNdarray_Check(py_V1))
+235         {
+236             //fprintf(stderr, "c_extract CNDA object w refcnt %p %i\n", py_V1, (py_V1->ob_refcnt));
+237             V1 = (CudaNdarray*)py_V1;
+238             //std::cerr << "c_extract " << V1 << '\n';
+239         
+240 
+241                 if (V1->nd != 4)
+242                 {
+243                     PyErr_Format(PyExc_RuntimeError,
+244                                  "c_extract: Some CudaNdarray has rank %i, it was supposed to have rank 4",
+245                                  V1->nd);
+246                     V1 = NULL;
+247                     {
+248         __failure = 2;
+249         if (!PyErr_Occurred()) {
+250             PyErr_SetString(PyExc_RuntimeError,
+251                 "Unexpected error in an Op's C code. "
+252                 "No Python exception was set.");
+253             }
+254         goto __label_2;};
+255                 }
+256                 //std::cerr << "c_extract " << V1 << " nd check passed\n";
+257             
+258 
+259                 assert(V1);
+260                 Py_INCREF(py_V1);
+261             }
+262             else if (py_V1 == Py_None)
+263             {
+264                 PyErr_SetString(PyExc_TypeError,
+265                                 "expected a CudaNdarray, not None");
+266                 V1 = NULL;
+267                 {
+268         __failure = 2;
+269         if (!PyErr_Occurred()) {
+270             PyErr_SetString(PyExc_RuntimeError,
+271                 "Unexpected error in an Op's C code. "
+272                 "No Python exception was set.");
+273             }
+274         goto __label_2;};
+275             }
+276             else
+277             {
+278                 //fprintf(stderr, "FAILING c_extract CNDA object w refcnt %p %i\n", py_V1, (py_V1->ob_refcnt));
+279                 PyErr_SetString(PyExc_TypeError, "Argument not a CudaNdarray");
+280                 V1 = NULL;
+281                 {
+282         __failure = 2;
+283         if (!PyErr_Occurred()) {
+284             PyErr_SetString(PyExc_RuntimeError,
+285                 "Unexpected error in an Op's C code. "
+286                 "No Python exception was set.");
+287             }
+288         goto __label_2;};
+289             }
+290             //std::cerr << "c_extract done " << V1 << '\n';
+291             
+292 
+293         }
+294         
+295 {
+296 
+297     py_V3 = PyList_GET_ITEM(storage_V3, 0);
+298     {Py_XINCREF(py_V3);}
+299     
+300         assert(py_V3->ob_refcnt >= 2); // There should be at least one ref from the container object,
+301         // and one ref from the local scope.
+302 
+303         if (CudaNdarray_Check(py_V3))
+304         {
+305             //fprintf(stderr, "c_extract CNDA object w refcnt %p %i\n", py_V3, (py_V3->ob_refcnt));
+306             V3 = (CudaNdarray*)py_V3;
+307             //std::cerr << "c_extract " << V3 << '\n';
+308         
+309 
+310                 if (V3->nd != 4)
+311                 {
+312                     PyErr_Format(PyExc_RuntimeError,
+313                                  "c_extract: Some CudaNdarray has rank %i, it was supposed to have rank 4",
+314                                  V3->nd);
+315                     V3 = NULL;
+316                     {
+317         __failure = 4;
+318         if (!PyErr_Occurred()) {
+319             PyErr_SetString(PyExc_RuntimeError,
+320                 "Unexpected error in an Op's C code. "
+321                 "No Python exception was set.");
+322             }
+323         goto __label_4;};
+324                 }
+325                 //std::cerr << "c_extract " << V3 << " nd check passed\n";
+326             
+327 
+328                 assert(V3);
+329                 Py_INCREF(py_V3);
+330             }
+331             else if (py_V3 == Py_None)
+332             {
+333                 PyErr_SetString(PyExc_TypeError,
+334                                 "expected a CudaNdarray, not None");
+335                 V3 = NULL;
+336                 {
+337         __failure = 4;
+338         if (!PyErr_Occurred()) {
+339             PyErr_SetString(PyExc_RuntimeError,
+340                 "Unexpected error in an Op's C code. "
+341                 "No Python exception was set.");
+342             }
+343         goto __label_4;};
+344             }
+345             else
+346             {
+347                 //fprintf(stderr, "FAILING c_extract CNDA object w refcnt %p %i\n", py_V3, (py_V3->ob_refcnt));
+348                 PyErr_SetString(PyExc_TypeError, "Argument not a CudaNdarray");
+349                 V3 = NULL;
+350                 {
+351         __failure = 4;
+352         if (!PyErr_Occurred()) {
+353             PyErr_SetString(PyExc_RuntimeError,
+354                 "Unexpected error in an Op's C code. "
+355                 "No Python exception was set.");
+356             }
+357         goto __label_4;};
+358             }
+359             //std::cerr << "c_extract done " << V3 << '\n';
+360             
+361 
+362 {
+363 
+364     py_V5 = PyList_GET_ITEM(storage_V5, 0);
+365     {Py_XINCREF(py_V5);}
+366     
+367             V5 = NULL;
+368             if (py_V5 == Py_None) {
+369                 // We can either fail here or set V5 to NULL and rely on Ops
+370                 // using tensors to handle the NULL case, but if they fail to do so
+371                 // they'll end up with nasty segfaults, so this is public service.
+372                 PyErr_SetString(PyExc_ValueError, "expected an ndarray, not None");
+373                 {
+374         __failure = 6;
+375         if (!PyErr_Occurred()) {
+376             PyErr_SetString(PyExc_RuntimeError,
+377                 "Unexpected error in an Op's C code. "
+378                 "No Python exception was set.");
+379             }
+380         goto __label_6;}
+381             }
+382             if (!PyArray_Check(py_V5)) {
+383                 PyErr_SetString(PyExc_ValueError, "expected an ndarray");
+384                 {
+385         __failure = 6;
+386         if (!PyErr_Occurred()) {
+387             PyErr_SetString(PyExc_RuntimeError,
+388                 "Unexpected error in an Op's C code. "
+389                 "No Python exception was set.");
+390             }
+391         goto __label_6;}
+392             }
+393             // We expect NPY_INT64
+394             if (!PyArray_ISALIGNED((PyArrayObject*) py_V5)) {
+395                 PyArrayObject * tmp = (PyArrayObject*) py_V5;
+396                 PyErr_Format(PyExc_NotImplementedError,
+397                              "expected an aligned array of type %ld "
+398                              "(NPY_INT64), got non-aligned array of type %ld"
+399                              " with %ld dimensions, with 3 last dims "
+400                              "%ld, %ld, %ld"
+401                              " and 3 last strides %ld %ld, %ld.",
+402                              (long int) NPY_INT64,
+403                              (long int) PyArray_TYPE((PyArrayObject*) py_V5),
+404                              (long int) PyArray_NDIM(tmp),
+405                              (long int) PyArray_NDIM(tmp) >= 3 ?
+406             PyArray_DIMS(tmp)[PyArray_NDIM(tmp)-3] : -1,
+407                              (long int) PyArray_NDIM(tmp) >= 2 ?
+408             PyArray_DIMS(tmp)[PyArray_NDIM(tmp)-2] : -1,
+409                              (long int) PyArray_NDIM(tmp) >= 1 ?
+410             PyArray_DIMS(tmp)[PyArray_NDIM(tmp)-1] : -1,
+411                              (long int) PyArray_NDIM(tmp) >= 3 ?
+412             PyArray_STRIDES(tmp)[PyArray_NDIM(tmp)-3] : -1,
+413                              (long int) PyArray_NDIM(tmp) >= 2 ?
+414             PyArray_STRIDES(tmp)[PyArray_NDIM(tmp)-2] : -1,
+415                              (long int) PyArray_NDIM(tmp) >= 1 ?
+416             PyArray_STRIDES(tmp)[PyArray_NDIM(tmp)-1] : -1
+417             );
+418                 {
+419         __failure = 6;
+420         if (!PyErr_Occurred()) {
+421             PyErr_SetString(PyExc_RuntimeError,
+422                 "Unexpected error in an Op's C code. "
+423                 "No Python exception was set.");
+424             }
+425         goto __label_6;}
+426             }
+427             // This is a TypeError to be consistent with DEBUG_MODE
+428             // Note: DEBUG_MODE also tells the name of the container
+429             if (PyArray_TYPE((PyArrayObject*) py_V5) != NPY_INT64) {
+430                 PyErr_Format(PyExc_TypeError,
+431                              "expected type_num %d (NPY_INT64) got %d",
+432                              NPY_INT64, PyArray_TYPE((PyArrayObject*) py_V5));
+433                 {
+434         __failure = 6;
+435         if (!PyErr_Occurred()) {
+436             PyErr_SetString(PyExc_RuntimeError,
+437                 "Unexpected error in an Op's C code. "
+438                 "No Python exception was set.");
+439             }
+440         goto __label_6;}
+441             }
+442             
+443         V5 = (PyArrayObject*)(py_V5);
+444         Py_XINCREF(V5);
+445         
+446 {
+447 
+448     py_V7 = PyList_GET_ITEM(storage_V7, 0);
+449     {Py_XINCREF(py_V7);}
+450     
+451             V7 = NULL;
+452             if (py_V7 == Py_None) {
+453                 // We can either fail here or set V7 to NULL and rely on Ops
+454                 // using tensors to handle the NULL case, but if they fail to do so
+455                 // they'll end up with nasty segfaults, so this is public service.
+456                 PyErr_SetString(PyExc_ValueError, "expected an ndarray, not None");
+457                 {
+458         __failure = 8;
+459         if (!PyErr_Occurred()) {
+460             PyErr_SetString(PyExc_RuntimeError,
+461                 "Unexpected error in an Op's C code. "
+462                 "No Python exception was set.");
+463             }
+464         goto __label_8;}
+465             }
+466             if (!PyArray_Check(py_V7)) {
+467                 PyErr_SetString(PyExc_ValueError, "expected an ndarray");
+468                 {
+469         __failure = 8;
+470         if (!PyErr_Occurred()) {
+471             PyErr_SetString(PyExc_RuntimeError,
+472                 "Unexpected error in an Op's C code. "
+473                 "No Python exception was set.");
+474             }
+475         goto __label_8;}
+476             }
+477             // We expect NPY_INT64
+478             if (!PyArray_ISALIGNED((PyArrayObject*) py_V7)) {
+479                 PyArrayObject * tmp = (PyArrayObject*) py_V7;
+480                 PyErr_Format(PyExc_NotImplementedError,
+481                              "expected an aligned array of type %ld "
+482                              "(NPY_INT64), got non-aligned array of type %ld"
+483                              " with %ld dimensions, with 3 last dims "
+484                              "%ld, %ld, %ld"
+485                              " and 3 last strides %ld %ld, %ld.",
+486                              (long int) NPY_INT64,
+487                              (long int) PyArray_TYPE((PyArrayObject*) py_V7),
+488                              (long int) PyArray_NDIM(tmp),
+489                              (long int) PyArray_NDIM(tmp) >= 3 ?
+490             PyArray_DIMS(tmp)[PyArray_NDIM(tmp)-3] : -1,
+491                              (long int) PyArray_NDIM(tmp) >= 2 ?
+492             PyArray_DIMS(tmp)[PyArray_NDIM(tmp)-2] : -1,
+493                              (long int) PyArray_NDIM(tmp) >= 1 ?
+494             PyArray_DIMS(tmp)[PyArray_NDIM(tmp)-1] : -1,
+495                              (long int) PyArray_NDIM(tmp) >= 3 ?
+496             PyArray_STRIDES(tmp)[PyArray_NDIM(tmp)-3] : -1,
+497                              (long int) PyArray_NDIM(tmp) >= 2 ?
+498             PyArray_STRIDES(tmp)[PyArray_NDIM(tmp)-2] : -1,
+499                              (long int) PyArray_NDIM(tmp) >= 1 ?
+500             PyArray_STRIDES(tmp)[PyArray_NDIM(tmp)-1] : -1
+501             );
+502                 {
+503         __failure = 8;
+504         if (!PyErr_Occurred()) {
+505             PyErr_SetString(PyExc_RuntimeError,
+506                 "Unexpected error in an Op's C code. "
+507                 "No Python exception was set.");
+508             }
+509         goto __label_8;}
+510             }
+511             // This is a TypeError to be consistent with DEBUG_MODE
+512             // Note: DEBUG_MODE also tells the name of the container
+513             if (PyArray_TYPE((PyArrayObject*) py_V7) != NPY_INT64) {
+514                 PyErr_Format(PyExc_TypeError,
+515                              "expected type_num %d (NPY_INT64) got %d",
+516                              NPY_INT64, PyArray_TYPE((PyArrayObject*) py_V7));
+517                 {
+518         __failure = 8;
+519         if (!PyErr_Occurred()) {
+520             PyErr_SetString(PyExc_RuntimeError,
+521                 "Unexpected error in an Op's C code. "
+522                 "No Python exception was set.");
+523             }
+524         goto __label_8;}
+525             }
+526             
+527         V7 = (PyArrayObject*)(py_V7);
+528         Py_XINCREF(V7);
+529         
+530 {
+531 // Op class GpuDnnPool
+532 
+533 cudnnStatus_t err;
+534 
+535 int V1_dims[5];
+536 
+537 if (!CudaNdarray_is_c_contiguous(V3)) {
+538   PyErr_SetString(PyExc_ValueError, "Only contiguous inputs are supported.");
+539   {
+540         __failure = 9;
+541         if (!PyErr_Occurred()) {
+542             PyErr_SetString(PyExc_RuntimeError,
+543                 "Unexpected error in an Op's C code. "
+544                 "No Python exception was set.");
+545             }
+546         goto __label_9;}
+547 }
+548 
+549 if (c_set_tensorNd(V3, inputnode_mcc3066e13c4a42f7e6525d2bc9532fa9_0) != 0)
+550   {
+551         __failure = 9;
+552         if (!PyErr_Occurred()) {
+553             PyErr_SetString(PyExc_RuntimeError,
+554                 "Unexpected error in an Op's C code. "
+555                 "No Python exception was set.");
+556             }
+557         goto __label_9;}
+558 
+559 int win[2];
+560 int pad[2];
+561 int str[2];
+562 for(int i = 0; i < 2; i++) {
+563    win[i] = *((npy_intp*)PyArray_GETPTR1(V5, i));
+564 }
+565 for(int i = 0; i < 2; i++) {
+566    pad[i] = *((npy_intp*)PyArray_GETPTR1(V7, i));
+567 }
+568 for(int i = 0; i < 2; i++) {
+569    str[i] = *((npy_intp*)PyArray_GETPTR1(V5, i));
+570 }
+571 err = cudnnSetPoolingNdDescriptor(
+572     poolnode_mcc3066e13c4a42f7e6525d2bc9532fa9_0, CUDNN_POOLING_AVERAGE_COUNT_EXCLUDE_PADDING, 2,
+573     win, pad, str);
+574 
+575 if (err != CUDNN_STATUS_SUCCESS) {
+576 PyErr_Format(PyExc_RuntimeError, "could not set op descriptor: %s",
+577                 cudnnGetErrorString(err));
+578 {
+579         __failure = 9;
+580         if (!PyErr_Occurred()) {
+581             PyErr_SetString(PyExc_RuntimeError,
+582                 "Unexpected error in an Op's C code. "
+583                 "No Python exception was set.");
+584             }
+585         goto __label_9;}
+586 }
+587 
+588 V1_dims[0] = CudaNdarray_HOST_DIMS(V3)[0];
+589 V1_dims[1] = CudaNdarray_HOST_DIMS(V3)[1];
+590 V1_dims[2] = (CudaNdarray_HOST_DIMS(V3)[2] + (pad[0]*2) - win[0]) / str[0] + 1;
+591 V1_dims[3] = (CudaNdarray_HOST_DIMS(V3)[3] + (pad[1]*2) - win[1]) / str[1] + 1;
+592 if (2 == 3)
+593   V1_dims[4] = (CudaNdarray_HOST_DIMS(V3)[4] + (pad[2]*2) - win[2]) / str[2] + 1;
+594 
+595 if (CudaNdarray_prep_output(&V1, 2+2, V1_dims) != 0)
+596 {
+597   {
+598         __failure = 9;
+599         if (!PyErr_Occurred()) {
+600             PyErr_SetString(PyExc_RuntimeError,
+601                 "Unexpected error in an Op's C code. "
+602                 "No Python exception was set.");
+603             }
+604         goto __label_9;}
+605 }
+606 
+607 if (c_set_tensorNd(V1, outputnode_mcc3066e13c4a42f7e6525d2bc9532fa9_0) != 0)
+608   {
+609         __failure = 9;
+610         if (!PyErr_Occurred()) {
+611             PyErr_SetString(PyExc_RuntimeError,
+612                 "Unexpected error in an Op's C code. "
+613                 "No Python exception was set.");
+614             }
+615         goto __label_9;}
+616 
+617 {
+618 const float alpha = 1;
+619 const float beta = 0;
+620 err = cudnnPoolingForward(
+621 _handle,
+622 poolnode_mcc3066e13c4a42f7e6525d2bc9532fa9_0,
+623 &alpha,
+624 inputnode_mcc3066e13c4a42f7e6525d2bc9532fa9_0, CudaNdarray_DEV_DATA(V3),
+625 &beta,
+626 outputnode_mcc3066e13c4a42f7e6525d2bc9532fa9_0, CudaNdarray_DEV_DATA(V1)
+627 );
+628 }
+629 if (err != CUDNN_STATUS_SUCCESS) {
+630   PyErr_Format(PyExc_RuntimeError,
+631                "GpuDnnPool: error doing cudnnPoolingForward operation: %s",
+632                cudnnGetErrorString(err));
+633   {
+634         __failure = 9;
+635         if (!PyErr_Occurred()) {
+636             PyErr_SetString(PyExc_RuntimeError,
+637                 "Unexpected error in an Op's C code. "
+638                 "No Python exception was set.");
+639             }
+640         goto __label_9;}
+641 }
+642 __label_9:
+643 
+644 double __DUMMY_9;
+645 
+646 }
+647 __label_8:
+648 
+649         if (V7) {
+650             Py_XDECREF(V7);
+651         }
+652         
+653     {Py_XDECREF(py_V7);}
+654     
+655 double __DUMMY_8;
+656 
+657 }
+658 __label_6:
+659 
+660         if (V5) {
+661             Py_XDECREF(V5);
+662         }
+663         
+664     {Py_XDECREF(py_V5);}
+665     
+666 double __DUMMY_6;
+667 
+668 }
+669 __label_4:
+670 
+671         //std::cerr << "cleanup " << py_V3 << " " << V3 << "\n";
+672         //fprintf(stderr, "c_cleanup CNDA py_object w refcnt %p %i\n", py_V3, (py_V3->ob_refcnt));
+673         if (V3)
+674         {
+675             //fprintf(stderr, "c_cleanup CNDA cn_object w refcnt %p %i\n", V3, (V3->ob_refcnt));
+676             Py_XDECREF(V3);
+677         }
+678         //std::cerr << "cleanup done" << py_V3 << "\n";
+679         
+680     {Py_XDECREF(py_V3);}
+681     
+682 double __DUMMY_4;
+683 
+684 }
+685 __label_2:
+686 
+687     if (!__failure) {
+688       
+689         //std::cerr << "sync\n";
+690         if (NULL == V1) {
+691             // failure: sync None to storage
+692             Py_XDECREF(py_V1);
+693             py_V1 = Py_None;
+694             Py_INCREF(py_V1);
+695         }
+696         else
+697         {
+698             if (py_V1 != (PyObject*)V1)
+699             {
+700                 Py_XDECREF(py_V1);
+701                 py_V1 = (PyObject*)V1;
+702                 Py_INCREF(py_V1);
+703             }
+704             assert(py_V1->ob_refcnt);
+705         }
+706         
+707       PyObject* old = PyList_GET_ITEM(storage_V1, 0);
+708       {Py_XINCREF(py_V1);}
+709       PyList_SET_ITEM(storage_V1, 0, py_V1);
+710       {Py_XDECREF(old);}
+711     }
+712     
+713         //std::cerr << "cleanup " << py_V1 << " " << V1 << "\n";
+714         //fprintf(stderr, "c_cleanup CNDA py_object w refcnt %p %i\n", py_V1, (py_V1->ob_refcnt));
+715         if (V1)
+716         {
+717             //fprintf(stderr, "c_cleanup CNDA cn_object w refcnt %p %i\n", V1, (V1->ob_refcnt));
+718             Py_XDECREF(V1);
+719         }
+720         //std::cerr << "cleanup done" << py_V1 << "\n";
+721         
+722     {Py_XDECREF(py_V1);}
+723     
+724 double __DUMMY_2;
+725 
+726 }
+727 
+728             
+729         if (__failure) {
+730             // When there is a failure, this code puts the exception
+731             // in __ERROR.
+732             PyObject* err_type = NULL;
+733             PyObject* err_msg = NULL;
+734             PyObject* err_traceback = NULL;
+735             PyErr_Fetch(&err_type, &err_msg, &err_traceback);
+736             if (!err_type) {err_type = Py_None;Py_INCREF(Py_None);}
+737             if (!err_msg) {err_msg = Py_None; Py_INCREF(Py_None);}
+738             if (!err_traceback) {err_traceback = Py_None; Py_INCREF(Py_None);}
+739             PyObject* old_err_type = PyList_GET_ITEM(__ERROR, 0);
+740             PyObject* old_err_msg = PyList_GET_ITEM(__ERROR, 1);
+741             PyObject* old_err_traceback = PyList_GET_ITEM(__ERROR, 2);
+742             PyList_SET_ITEM(__ERROR, 0, err_type);
+743             PyList_SET_ITEM(__ERROR, 1, err_msg);
+744             PyList_SET_ITEM(__ERROR, 2, err_traceback);
+745             {Py_XDECREF(old_err_type);}
+746             {Py_XDECREF(old_err_msg);}
+747             {Py_XDECREF(old_err_traceback);}
+748         }
+749         // The failure code is returned to index what code block failed.
+750         return __failure;
+751         
+752         }
+753     };
+754     }
+755     
+756 
+757         static int __struct_compiled_op_mcc3066e13c4a42f7e6525d2bc9532fa9_executor(__struct_compiled_op_mcc3066e13c4a42f7e6525d2bc9532fa9 *self) {
+758             return self->run();
+759         }
+760 
+761         static void __struct_compiled_op_mcc3066e13c4a42f7e6525d2bc9532fa9_destructor(PyObject *capsule) {
+762             __struct_compiled_op_mcc3066e13c4a42f7e6525d2bc9532fa9 *self = (__struct_compiled_op_mcc3066e13c4a42f7e6525d2bc9532fa9 *)PyCapsule_GetContext(capsule);
+763             delete self;
+764         }
+765         
+766 //////////////////////
+767 ////  Functions
+768 //////////////////////
+769 static PyObject * instantiate(PyObject * self, PyObject *argtuple) {
+770   assert(PyTuple_Check(argtuple));
+771   if (5 != PyTuple_Size(argtuple)){ 
+772      PyErr_Format(PyExc_TypeError, "Wrong number of arguments, expected 5, got %i", (int)PyTuple_Size(argtuple));
+773      return NULL;
+774   }
+775   __struct_compiled_op_mcc3066e13c4a42f7e6525d2bc9532fa9* struct_ptr = new __struct_compiled_op_mcc3066e13c4a42f7e6525d2bc9532fa9();
+776   if (struct_ptr->init( PyTuple_GET_ITEM(argtuple, 0),PyTuple_GET_ITEM(argtuple, 1),PyTuple_GET_ITEM(argtuple, 2),PyTuple_GET_ITEM(argtuple, 3),PyTuple_GET_ITEM(argtuple, 4) ) != 0) {
+777     delete struct_ptr;
+778     return NULL;
+779   }
+780     PyObject* thunk = PyCapsule_New((void*)(&__struct_compiled_op_mcc3066e13c4a42f7e6525d2bc9532fa9_executor), NULL, __struct_compiled_op_mcc3066e13c4a42f7e6525d2bc9532fa9_destructor);
+781     if (thunk != NULL && PyCapsule_SetContext(thunk, struct_ptr) != 0) {
+782         PyErr_Clear();
+783         Py_DECREF(thunk);
+784         thunk = NULL;
+785     }
+786 
+787   return thunk; }
+788 
+789 //////////////////////
+790 ////  Module init
+791 //////////////////////
+792 static PyMethodDef MyMethods[] = {
+793 	{"instantiate", instantiate, METH_VARARGS, "undocumented"} ,
+794 	{NULL, NULL, 0, NULL}
+795 };
+796 static struct PyModuleDef moduledef = {
+797       PyModuleDef_HEAD_INIT,
+798       "mcc3066e13c4a42f7e6525d2bc9532fa9",
+799       NULL,
+800       -1,
+801       MyMethods,
+802 };
+803 
+804 PyMODINIT_FUNC PyInit_mcc3066e13c4a42f7e6525d2bc9532fa9(void) {
+805    import_array();
+806    
+807 
+808 {
+809   cudnnStatus_t err;
+810   if ((err = cudnnCreate(&_handle)) != CUDNN_STATUS_SUCCESS) {
+811     PyErr_Format(PyExc_RuntimeError, "could not create cuDNN handle: %s",
+812 		 cudnnGetErrorString(err));
+813 #if PY_MAJOR_VERSION >= 3
+814     return NULL;
+815 #else
+816     return;
+817 #endif
+818   }
+819 }
+820 
+821     PyObject *m = PyModule_Create(&moduledef);
+822     return m;
+823 }
+824 
+===============================
+In file included from mod.cu:4:0:
+/home/paperspace/Projects/face-transfer/.env/lib/python3.4/site-packages/theano/sandbox/cuda/cuda_ndarray.cuh:17:0: warning: "PyString_Check" redefined [enabled by default]
+ #define PyString_Check PyUnicode_Check
+ ^
+In file included from /home/paperspace/Projects/face-transfer/.env/lib/python3.4/site-packages/theano/sandbox/cuda/cuda_ndarray.cuh:11:0,
+                 from mod.cu:4:
+/usr/lib/python3/dist-packages/numpy/core/include/numpy/npy_3kcompat.h:63:0: note: this is the location of the previous definition
+ #define PyString_Check PyBytes_Check
+ ^
+In file included from mod.cu:4:0:
+/home/paperspace/Projects/face-transfer/.env/lib/python3.4/site-packages/theano/sandbox/cuda/cuda_ndarray.cuh:18:0: warning: "PyString_FromString" redefined [enabled by default]
+ #define PyString_FromString PyUnicode_FromString
+ ^
+In file included from /home/paperspace/Projects/face-transfer/.env/lib/python3.4/site-packages/theano/sandbox/cuda/cuda_ndarray.cuh:11:0,
+                 from mod.cu:4:
+/usr/lib/python3/dist-packages/numpy/core/include/numpy/npy_3kcompat.h:65:0: note: this is the location of the previous definition
+ #define PyString_FromString PyBytes_FromString
+ ^
+In file included from mod.cu:4:0:
+/home/paperspace/Projects/face-transfer/.env/lib/python3.4/site-packages/theano/sandbox/cuda/cuda_ndarray.cuh:19:0: warning: "PyString_AsString" redefined [enabled by default]
+ #define PyString_AsString PyUnicode_AsUTF8
+ ^
+In file included from /home/paperspace/Projects/face-transfer/.env/lib/python3.4/site-packages/theano/sandbox/cuda/cuda_ndarray.cuh:11:0,
+                 from mod.cu:4:
+/usr/lib/python3/dist-packages/numpy/core/include/numpy/npy_3kcompat.h:72:0: note: this is the location of the previous definition
+ #define PyString_AsString PyBytes_AsString
+ ^
+In file included from mod.cu:4:0:
+/home/paperspace/Projects/face-transfer/.env/lib/python3.4/site-packages/theano/sandbox/cuda/cuda_ndarray.cuh:20:0: warning: "PyString_FromStringAndSize" redefined [enabled by default]
+ #define PyString_FromStringAndSize PyUnicode_FromStringAndSize
+ ^
+In file included from /home/paperspace/Projects/face-transfer/.env/lib/python3.4/site-packages/theano/sandbox/cuda/cuda_ndarray.cuh:11:0,
+                 from mod.cu:4:
+/usr/lib/python3/dist-packages/numpy/core/include/numpy/npy_3kcompat.h:66:0: note: this is the location of the previous definition
+ #define PyString_FromStringAndSize PyBytes_FromStringAndSize
+ ^
+In file included from mod.cu:4:0:
+/home/paperspace/Projects/face-transfer/.env/lib/python3.4/site-packages/theano/sandbox/cuda/cuda_ndarray.cuh:21:0: warning: "PyString_Size" redefined [enabled by default]
+ #define PyString_Size PyUnicode_GET_SIZE
+ ^
+In file included from /home/paperspace/Projects/face-transfer/.env/lib/python3.4/site-packages/theano/sandbox/cuda/cuda_ndarray.cuh:11:0,
+                 from mod.cu:4:
+/usr/lib/python3/dist-packages/numpy/core/include/numpy/npy_3kcompat.h:74:0: note: this is the location of the previous definition
+ #define PyString_Size PyBytes_Size
+ ^
+mod.cu(70): error: argument of type "int" is incompatible with parameter of type "cudnnTensorFormat_t"
+mod.cu(71): error: argument of type "const int *" is incompatible with parameter of type "int"
+mod.cu(71): error: too few arguments in function call
+mod.cu(572): error: argument of type "int" is incompatible with parameter of type "cudnnNanPropagation_t"
+mod.cu(573): error: argument of type "int *" is incompatible with parameter of type "int"
+mod.cu(573): error: too few arguments in function call
+mod.cu(593): warning: subscript out of range
+mod.cu(593): warning: subscript out of range
+mod.cu(593): warning: subscript out of range
+mod.cu(63): warning: function "c_set_filterNd" was declared but never referenced
+6 errors detected in the compilation of "/tmp/tmpxft_00000c45_00000000-9_mod.cpp1.ii".
+[1;36mNeural Doodle for semantic style transfer.[0m
+[0;36m  - Using device `gpu` for processing the images.[0m
+[0;36m  - Loading `my_samples/chris.png` for content data.
+  - Adding `my_samples/chris_sem.png` as semantic map.
+  - Loading `my_samples/morgan.png` for style data.
+  - Adding `my_samples/morgan_sem.png` as semantic map.
+[0m
+[1;94mPhase #0: resolution 155x93  scale 0.25[0;94m
+
+['nvcc', '-shared', '-O3', '-Xlinker', '-rpath,/usr/local/cuda/lib64', '-arch=sm_61', '-m64', '-Xcompiler', '-fno-math-errno,-Wno-unused-label,-Wno-unused-variable,-Wno-write-strings,-DCUDA_NDARRAY_CUH=mc72d035fdf91890f3b36710688069b2e,-DNPY_NO_DEPRECATED_API=NPY_1_7_API_VERSION,-fPIC,-fvisibility=hidden', '-Xlinker', '-rpath,/home/paperspace/.theano/compiledir_Linux-4.4--generic-x86_64-with-Ubuntu-14.04-trusty-x86_64-3.4.3-64/cuda_ndarray', '-I/home/paperspace/.theano/compiledir_Linux-4.4--generic-x86_64-with-Ubuntu-14.04-trusty-x86_64-3.4.3-64/cuda_ndarray', '-I/usr/local/cuda/include', '-I/home/paperspace/Projects/face-transfer/.env/lib/python3.4/site-packages/theano/sandbox/cuda', '-I/usr/lib/python3/dist-packages/numpy/core/include', '-I/usr/include/python3.4m', '-I/home/paperspace/Projects/face-transfer/.env/include/python3.4m', '-I/home/paperspace/Projects/face-transfer/.env/lib/python3.4/site-packages/theano/gof', '-o', '/home/paperspace/.theano/compiledir_Linux-4.4--generic-x86_64-with-Ubuntu-14.04-trusty-x86_64-3.4.3-64/tmp9_531652/mcc3066e13c4a42f7e6525d2bc9532fa9.so', 'mod.cu', '-L/home/paperspace/.theano/compiledir_Linux-4.4--generic-x86_64-with-Ubuntu-14.04-trusty-x86_64-3.4.3-64/cuda_ndarray', '-L/usr/lib', '-lcudart', '-lcublas', '-lcuda_ndarray', '-lcudnn', '-lpython3.4m']
+Traceback (most recent call last):
+  File "doodle.py", line 658, in <module>
+    generator.run()
+  File "doodle.py", line 596, in run
+    self.prepare_style(scale)
+  File "doodle.py", line 351, in prepare_style
+    extractor = self.compile([self.model.tensor_img, self.model.tensor_map], self.do_extract_patches(layer_outputs))
+  File "doodle.py", line 305, in compile
+    return theano.function(list(arguments), function, on_unused_input='ignore')
+  File "/home/paperspace/Projects/face-transfer/.env/lib/python3.4/site-packages/theano/compile/function.py", line 320, in function
+    output_keys=output_keys)
+  File "/home/paperspace/Projects/face-transfer/.env/lib/python3.4/site-packages/theano/compile/pfunc.py", line 479, in pfunc
+    output_keys=output_keys)
+  File "/home/paperspace/Projects/face-transfer/.env/lib/python3.4/site-packages/theano/compile/function_module.py", line 1777, in orig_function
+    defaults)
+  File "/home/paperspace/Projects/face-transfer/.env/lib/python3.4/site-packages/theano/compile/function_module.py", line 1641, in create
+    input_storage=input_storage_lists, storage_map=storage_map)
+  File "/home/paperspace/Projects/face-transfer/.env/lib/python3.4/site-packages/theano/gof/link.py", line 690, in make_thunk
+    storage_map=storage_map)[:3]
+  File "/home/paperspace/Projects/face-transfer/.env/lib/python3.4/site-packages/theano/gof/vm.py", line 1003, in make_all
+    no_recycling))
+  File "/home/paperspace/Projects/face-transfer/.env/lib/python3.4/site-packages/theano/sandbox/cuda/__init__.py", line 256, in make_thunk
+    compute_map, no_recycling)
+  File "/home/paperspace/Projects/face-transfer/.env/lib/python3.4/site-packages/theano/gof/op.py", line 970, in make_thunk
+    no_recycling)
+  File "/home/paperspace/Projects/face-transfer/.env/lib/python3.4/site-packages/theano/gof/op.py", line 879, in make_c_thunk
+    output_storage=node_output_storage)
+  File "/home/paperspace/Projects/face-transfer/.env/lib/python3.4/site-packages/theano/gof/cc.py", line 1200, in make_thunk
+    keep_lock=keep_lock)
+  File "/home/paperspace/Projects/face-transfer/.env/lib/python3.4/site-packages/theano/gof/cc.py", line 1143, in __compile__
+    keep_lock=keep_lock)
+  File "/home/paperspace/Projects/face-transfer/.env/lib/python3.4/site-packages/theano/gof/cc.py", line 1595, in cthunk_factory
+    key=key, lnk=self, keep_lock=keep_lock)
+  File "/home/paperspace/Projects/face-transfer/.env/lib/python3.4/site-packages/theano/gof/cmodule.py", line 1142, in module_from_key
+    module = lnk.compile_cmodule(location)
+  File "/home/paperspace/Projects/face-transfer/.env/lib/python3.4/site-packages/theano/gof/cc.py", line 1506, in compile_cmodule
+    preargs=preargs)
+  File "/home/paperspace/Projects/face-transfer/.env/lib/python3.4/site-packages/theano/sandbox/cuda/nvcc_compiler.py", line 399, in compile_str
+    'for cmd', ' '.join(cmd))
+Exception: ('The following error happened while compiling the node', GpuDnnPool{mode='average_exc_pad'}(GpuContiguous.0, TensorConstant{(2,) of 8}, TensorConstant{(2,) of 8}, TensorConstant{(2,) of 0}), '\n', 'nvcc return status', 2, 'for cmd', 'nvcc -shared -O3 -Xlinker -rpath,/usr/local/cuda/lib64 -arch=sm_61 -m64 -Xcompiler -fno-math-errno,-Wno-unused-label,-Wno-unused-variable,-Wno-write-strings,-DCUDA_NDARRAY_CUH=mc72d035fdf91890f3b36710688069b2e,-DNPY_NO_DEPRECATED_API=NPY_1_7_API_VERSION,-fPIC,-fvisibility=hidden -Xlinker -rpath,/home/paperspace/.theano/compiledir_Linux-4.4--generic-x86_64-with-Ubuntu-14.04-trusty-x86_64-3.4.3-64/cuda_ndarray -I/home/paperspace/.theano/compiledir_Linux-4.4--generic-x86_64-with-Ubuntu-14.04-trusty-x86_64-3.4.3-64/cuda_ndarray -I/usr/local/cuda/include -I/home/paperspace/Projects/face-transfer/.env/lib/python3.4/site-packages/theano/sandbox/cuda -I/usr/lib/python3/dist-packages/numpy/core/include -I/usr/include/python3.4m -I/home/paperspace/Projects/face-transfer/.env/include/python3.4m -I/home/paperspace/Projects/face-transfer/.env/lib/python3.4/site-packages/theano/gof -o /home/paperspace/.theano/compiledir_Linux-4.4--generic-x86_64-with-Ubuntu-14.04-trusty-x86_64-3.4.3-64/tmp9_531652/mcc3066e13c4a42f7e6525d2bc9532fa9.so mod.cu -L/home/paperspace/.theano/compiledir_Linux-4.4--generic-x86_64-with-Ubuntu-14.04-trusty-x86_64-3.4.3-64/cuda_ndarray -L/usr/lib -lcudart -lcublas -lcuda_ndarray -lcudnn -lpython3.4m', "[GpuDnnPool{mode='average_exc_pad'}(<CudaNdarrayType(float32, 4D)>, TensorConstant{(2,) of 8}, TensorConstant{(2,) of 8}, TensorConstant{(2,) of 0})]")
